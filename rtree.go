@@ -150,7 +150,7 @@ func search(btr *base.RTree, min, max []float64, dims int, iter Iterator) bool {
 	return !ended
 }
 
-func (tr *RTree) KNN(bounds Item, center bool, iter func(item Item, dist float64) bool) {
+func (tr *RTree) KNN(bounds Item, num int, center bool, iter func(item Item, dist float64) bool) {
 	if bounds == nil {
 		panic("nil bounds being used for search")
 	}
@@ -164,13 +164,25 @@ func (tr *RTree) KNN(bounds Item, center bool, iter func(item Item, dist float64
 		panic("invalid dimension")
 	}
 
+	// fmt.Println("tr.used is ", tr.used)
 	if tr.used == 0 {
 		return
 	}
+	// fmt.Println("tr.trs is ", len(tr.trs))
+	index := 1
 	if tr.used == 1 {
 		for i, btr := range tr.trs {
 			if btr != nil {
-				knn(btr, min, max, center, i+1, func(item interface{}, dist float64) bool {
+				index++
+				// fmt.Println(index)
+				knn(btr, min, max, center, num, i+1, func(item interface{}, dist float64) bool {
+					/*
+					index++
+					if index > num {
+						break
+					}
+					fmt.Println(index)
+					 */
 					return iter(item.(Item), dist)
 				})
 				break
@@ -178,7 +190,6 @@ func (tr *RTree) KNN(bounds Item, center bool, iter func(item Item, dist float64
 		}
 		return
 	}
-
 	type queueT struct {
 		done bool
 		step int
@@ -198,7 +209,7 @@ func (tr *RTree) KNN(bounds Item, center bool, iter func(item Item, dist float64
 			cond.Signal()
 			mu.Unlock()
 			go func(dims int, btr *base.RTree) {
-				knn(btr, min, max, center, dims, func(item interface{}, dist float64) bool {
+				knn(btr, min, max, center, 0, dims, func(item interface{}, dist float64) bool {
 					mu.Lock()
 					if ended {
 						mu.Unlock()
@@ -254,7 +265,7 @@ func (tr *RTree) KNN(bounds Item, center bool, iter func(item Item, dist float64
 	}
 	mu.Unlock()
 }
-func knn(btr *base.RTree, min, max []float64, center bool, dims int, iter func(item interface{}, dist float64) bool) bool {
+func knn(btr *base.RTree, min, max []float64, center bool, num, dims int, iter func(item interface{}, dist float64) bool) bool {
 	amin := make([]float64, dims)
 	amax := make([]float64, dims)
 	for i := 0; i < dims; i++ {
@@ -267,7 +278,7 @@ func knn(btr *base.RTree, min, max []float64, center bool, dims int, iter func(i
 		}
 	}
 	var ended bool
-	btr.KNN(amin, amax, center, func(item interface{}, dist float64) bool {
+	btr.KNN(amin, amax, center,num, func(item interface{}, dist float64) bool {
 		if !iter(item.(Item), dist) {
 			ended = true
 			return false
